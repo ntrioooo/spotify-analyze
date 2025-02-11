@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import ollama from "ollama";
 
 const CardForm = () => {
   const { theme, setTheme } = useTheme();
@@ -34,15 +35,33 @@ const CardForm = () => {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
 
+  interface Message {
+    role: string;
+    content: any;
+  }
+
+  const [messageOllama, setMessageOllama] = useState<Message[]>([]);
+
   const fetchPlaylists = async (userId: string) => {
     try {
       const response = await axios.get(
         `/api/spotify/playlists?userId=${userId}`
       );
-      console.log("response", response);
       setPlaylists(response.data.items || []);
     } catch (error) {
       console.error("Error fetching playlists:", error);
+    }
+  };
+
+  const fetchTracks = async (playlistId: string) => {
+    try {
+      const response = await axios.get(
+        `/api/spotify/playlists/tracks?playlistId=${playlistId}`
+      );
+      return response.data.items;
+    } catch (error) {
+      console.error("Error fetching tracks:", error);
+      return [];
     }
   };
 
@@ -60,6 +79,54 @@ const CardForm = () => {
     setSelectedPlaylist(playlist);
   };
 
+  const handleAnalyze = async () => {
+    if (!selectedPlaylist) return;
+
+    // Get tracks from the selected playlist
+    const tracks = await fetchTracks(selectedPlaylist);
+
+    if (tracks.length === 0) {
+      const errorMessage = {
+        role: "assistant",
+        content: "Sorry, no tracks were found in the selected playlist.",
+      };
+      setMessageOllama((prevMessages) => [...prevMessages, errorMessage]);
+      return;
+    }
+
+    const trackNames = tracks.map((track: any) => track.track.name).join("\n");
+
+    const messageToOllama = `Here are the tracks in the playlist:\n${trackNames}`;
+
+    try {
+      const response = await fetch("/api/deepseek/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: `${messageToOllama}` }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get response");
+      }
+
+      const data = await response.json();
+      const aiMessage = {
+        role: "assistant",
+        content: data.message,
+      };
+      setMessageOllama((prevMessages) => [...prevMessages, aiMessage]);
+    } catch (error) {
+      console.error("Error:", error);
+      const errorMessage = {
+        role: "assistant",
+        content: "Sorry, I encountered an error while processing your request.",
+      };
+      setMessageOllama((prevMessages) => [...prevMessages, errorMessage]);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -67,8 +134,6 @@ const CardForm = () => {
   if (!mounted) return null;
 
   const currentTheme = theme ?? "light";
-
-  console.log(selectedPlaylist);
 
   return (
     <Card className="w-[600px]">
@@ -144,13 +209,21 @@ const CardForm = () => {
             </Select>
             {selectedPlaylist && (
               <div className="mt-3">
-                <Button type="submit" className="w-full">
+                <Button
+                  type="submit"
+                  className="w-full"
+                  onClick={handleAnalyze}
+                >
                   Analyze
                 </Button>
               </div>
             )}
           </div>
         )}
+        {messageOllama &&
+          messageOllama.map((message, index) => (
+            <p key={index}>{message.content}</p>
+          ))}
       </CardContent>
     </Card>
   );
