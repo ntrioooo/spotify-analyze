@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   Card,
@@ -6,27 +6,28 @@ import {
   CardHeader,
   CardDescription,
   CardTitle,
-} from "@/app/components/ui/card";
-import { Button } from "@/app/components/ui/button";
-import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
-import { FaMoon, FaSun } from "react-icons/fa";
-import axios from "axios";
-import { Label } from "../ui/label";
+} from '@/app/components/ui/card';
+import { Button } from '@/app/components/ui/button';
+import { useTheme } from 'next-themes';
+import { useEffect, useState } from 'react';
+import { FaMoon, FaSun } from 'react-icons/fa';
+import axios from 'axios';
+import { Label } from '../ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
-import ollama from "ollama";
+} from '../ui/select';
+import { useMutation } from '@tanstack/react-query';
 
 const CardForm = () => {
   const { theme, setTheme } = useTheme();
 
   const [mounted, setMounted] = useState(false);
-  const [username, setUsername] = useState<string>("");
+  const [tracksPlaylists, setTracksPlaylists] = useState<Track[]>([]);
+  const [username, setUsername] = useState<string>('');
   interface Playlist {
     id: string;
     name: string;
@@ -37,10 +38,17 @@ const CardForm = () => {
 
   interface Message {
     role: string;
-    content: any;
+    content: string;
+  }
+
+  interface Track {
+    track: {
+      name: string;
+    };
   }
 
   const [messageOllama, setMessageOllama] = useState<Message[]>([]);
+  const [isTruncated, setIsTruncated] = useState(true);
 
   const fetchPlaylists = async (userId: string) => {
     try {
@@ -49,7 +57,7 @@ const CardForm = () => {
       );
       setPlaylists(response.data.items || []);
     } catch (error) {
-      console.error("Error fetching playlists:", error);
+      console.error('Error fetching playlists:', error);
     }
   };
 
@@ -59,14 +67,13 @@ const CardForm = () => {
         `/api/spotify/playlists/tracks?playlistId=${playlistId}`
       );
       const tracks = response.data.items || [];
+      setTracksPlaylists(tracks);
 
-      if (tracks.length > 0) {
-        handleAnalyze(tracks); // Lanjutkan untuk analisis tracks
-      } else {
-        console.log("Tidak ada track yang ditemukan dalam playlist.");
+      if (tracks.length <= 0) {
+        console.log('Tidak ada track yang ditemukan dalam playlist.');
       }
     } catch (error) {
-      console.error("Error fetching tracks:", error);
+      console.error('Error fetching tracks:', error);
       return [];
     }
   };
@@ -74,7 +81,7 @@ const CardForm = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (username) {
-      const userId = username.split("user/")[1]?.split("?")[0];
+      const userId = username.split('user/')[1]?.split('?')[0];
       if (userId) {
         fetchPlaylists(userId);
       }
@@ -86,47 +93,79 @@ const CardForm = () => {
     fetchTracks(playlist);
   };
 
-  const handleAnalyze = async (tracks: any) => {
-    const trackNames = tracks.map((track: any) => track.track.name).join("\n");
+  const handleAnalyze = async () => {
+    const trackNames = tracksPlaylists
+      ?.map((track) => track.track.name)
+      .join(', ');
 
-    const messageToOllama = `Here are the tracks in the playlist:\n${trackNames}`;
+    const numberOfTracks = tracksPlaylists?.length;
 
-    try {
-      const response = await fetch("/api/deepseek/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: `${messageToOllama}` }),
-      });
+    const selectedPlaylistName = playlists.find(
+      (playlist) => playlist.id === selectedPlaylist
+    )?.name;
 
-      if (!response.ok) {
-        throw new Error("Failed to get response");
+    const messageToOllama = `
+    Please analyze the following playlist:
+  
+    Playlist Name: "${selectedPlaylistName}"
+    Total number of songs: ${numberOfTracks}
+  
+    The songs in this playlist are:
+    ${trackNames}
+  
+    Based on the songs in the playlist, provide the ideal mood for this playlist and rate it from 1 to 100. For example:
+    Mood: Relaxing
+    Score: 85
+  `;
+
+    return fetch('/api/deepseek/analyze', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: `${messageToOllama}` }),
+    }).then((res) => res.json());
+  };
+
+  const mutation = useMutation({
+    mutationFn: handleAnalyze,
+    onMutate: () => {
+      // setMessageOllama((prevMessages) => [
+      //   ...prevMessages,
+      //   { role: 'assistant', content: 'Processing...' },
+      // ]);
+    },
+    onSuccess: (data) => {
+      if (data && data.message) {
+        setMessageOllama((prevMessages) => [
+          ...prevMessages,
+          { role: 'assistant', content: data.message },
+        ]);
+      } else {
+        console.error('Data tidak memiliki message:', data);
       }
-
-      const data = await response.json();
-      const aiMessage = {
-        role: "assistant",
-        content: data.message,
-      };
-      setMessageOllama((prevMessages) => [...prevMessages, aiMessage]);
-    } catch (error) {
-      console.error("Error:", error);
+    },
+    onError: (error) => {
+      console.error('Error:', error);
       const errorMessage = {
-        role: "assistant",
-        content: "Sorry, I encountered an error while processing your request.",
+        role: 'assistant',
+        content: 'Maaf, terjadi kesalahan saat memproses permintaan Anda.',
       };
       setMessageOllama((prevMessages) => [...prevMessages, errorMessage]);
-    }
-  };
+    },
+  });
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const toggleReadMore = () => {
+    setIsTruncated(!isTruncated);
+  };
+
   if (!mounted) return null;
 
-  const currentTheme = theme ?? "light";
+  const currentTheme = theme ?? 'light';
 
   return (
     <Card className="w-[600px]">
@@ -139,22 +178,22 @@ const CardForm = () => {
         </div>
         <button
           type="button"
-          onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         >
-          {theme === "light" ? (
+          {theme === 'light' ? (
             <FaMoon
               className={`transition-transform duration-300 ${
-                currentTheme === "dark"
-                  ? "-rotate-180 scale-0"
-                  : "rotate-0 scale-100"
+                currentTheme === 'dark'
+                  ? '-rotate-180 scale-0'
+                  : 'rotate-0 scale-100'
               }`}
             />
           ) : (
             <FaSun
               className={`transition-transform duration-300 ${
-                currentTheme === "light"
-                  ? "-rotate-180 scale-0"
-                  : "rotate-0 scale-100"
+                currentTheme === 'light'
+                  ? '-rotate-180 scale-0'
+                  : 'rotate-0 scale-100'
               }`}
             />
           )}
@@ -165,7 +204,7 @@ const CardForm = () => {
           <div className="w-full">
             <div className="flex flex-col space-y-3">
               <Label htmlFor="username" className="font-normal">
-                Profile Link{" "}
+                Profile Link{' '}
               </Label>
               <div className="w-full flex flex-row justify-between items-center space-x-4">
                 <input
@@ -203,20 +242,40 @@ const CardForm = () => {
             {selectedPlaylist && (
               <div className="mt-3">
                 <Button
-                  type="submit"
+                  type="button"
                   className="w-full"
-                  onClick={() => handleAnalyze(selectedPlaylist)}
+                  onClick={() => mutation.mutate()} // Menggunakan mutate dari useMutation
+                  disabled={mutation.isPending} // Menonaktifkan button saat loading
                 >
-                  Analyze
+                  {mutation.isPending ? (
+                    <span className="spinner-border spinner-border-sm"></span>
+                  ) : (
+                    'Analyze'
+                  )}
                 </Button>
               </div>
             )}
           </div>
         )}
         {messageOllama &&
-          messageOllama.map((message, index) => (
-            <p key={index}>{message.content}</p>
-          ))}
+          messageOllama.map((message, index) => {
+            const content = message.content;
+            const truncatedContent =
+              content.length > 300 ? content.slice(0, 300) + '...' : content; // Memotong pesan jika terlalu panjang
+
+            return (
+              <div key={index}>
+                <p>{isTruncated ? truncatedContent : content}</p>
+                {content.length > 300 && (
+                  <button onClick={toggleReadMore} className="text-blue-500">
+                    {isTruncated
+                      ? 'Baca Selengkapnya'
+                      : 'Tampilkan Lebih Sedikit'}
+                  </button>
+                )}
+              </div>
+            );
+          })}
       </CardContent>
     </Card>
   );

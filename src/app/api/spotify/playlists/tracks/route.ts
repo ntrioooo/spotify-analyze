@@ -43,7 +43,7 @@ const getTracksFromPlaylist = async (req: NextRequest) => {
   try {
     const accessToken = await getSpotifyAccessToken();
     const response = await axios.get(
-      `${SPOTIFY_API_BASE_URL}/playlists/${playlistId}/tracks?offset=0&limit=100&locale=*`,
+      `${SPOTIFY_API_BASE_URL}/playlists/${playlistId}/tracks?offset=0&limit=3&locale=*`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 
