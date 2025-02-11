@@ -58,7 +58,13 @@ const CardForm = () => {
       const response = await axios.get(
         `/api/spotify/playlists/tracks?playlistId=${playlistId}`
       );
-      return response.data.items;
+      const tracks = response.data.items || [];
+
+      if (tracks.length > 0) {
+        handleAnalyze(tracks); // Lanjutkan untuk analisis tracks
+      } else {
+        console.log("Tidak ada track yang ditemukan dalam playlist.");
+      }
     } catch (error) {
       console.error("Error fetching tracks:", error);
       return [];
@@ -77,23 +83,10 @@ const CardForm = () => {
 
   const handlePlaylistSelect = (playlist: string) => {
     setSelectedPlaylist(playlist);
+    fetchTracks(playlist);
   };
 
-  const handleAnalyze = async () => {
-    if (!selectedPlaylist) return;
-
-    // Get tracks from the selected playlist
-    const tracks = await fetchTracks(selectedPlaylist);
-
-    if (tracks.length === 0) {
-      const errorMessage = {
-        role: "assistant",
-        content: "Sorry, no tracks were found in the selected playlist.",
-      };
-      setMessageOllama((prevMessages) => [...prevMessages, errorMessage]);
-      return;
-    }
-
+  const handleAnalyze = async (tracks: any) => {
     const trackNames = tracks.map((track: any) => track.track.name).join("\n");
 
     const messageToOllama = `Here are the tracks in the playlist:\n${trackNames}`;
@@ -212,7 +205,7 @@ const CardForm = () => {
                 <Button
                   type="submit"
                   className="w-full"
-                  onClick={handleAnalyze}
+                  onClick={() => handleAnalyze(selectedPlaylist)}
                 >
                   Analyze
                 </Button>
