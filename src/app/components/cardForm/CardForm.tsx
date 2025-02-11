@@ -3,7 +3,6 @@
 import {
   Card,
   CardContent,
-  CardFooter,
   CardHeader,
   CardDescription,
   CardTitle,
@@ -28,7 +27,6 @@ const CardForm = () => {
   const [mounted, setMounted] = useState(false);
   const [username, setUsername] = useState<string>("");
   const [playlists, setPlaylists] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
 
   const fetchPlaylists = async (userId: string) => {
@@ -46,8 +44,7 @@ const CardForm = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (username) {
-      // Ambil playlist berdasarkan username (atau userId) yang diberikan
-      const userId = username.split("user/")[1]?.split("?")[0]; // This extracts the userId part from the URL
+      const userId = username.split("user/")[1]?.split("?")[0];
       if (userId) {
         fetchPlaylists(userId);
       }
