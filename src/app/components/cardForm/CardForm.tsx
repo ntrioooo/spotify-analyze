@@ -123,7 +123,7 @@ const CardForm = () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message: `${messageToOllama}` }),
+      body: JSON.stringify({ playlistText: `${messageToOllama}` }),
     }).then((res) => res.json());
   };
 
@@ -139,7 +139,7 @@ const CardForm = () => {
       if (data && data.message) {
         setMessageOllama((prevMessages) => [
           ...prevMessages,
-          { role: 'assistant', content: data.message },
+          { role: 'user', content: data.message },
         ]);
       } else {
         console.error('Data tidak memiliki message:', data);
@@ -148,7 +148,7 @@ const CardForm = () => {
     onError: (error) => {
       console.error('Error:', error);
       const errorMessage = {
-        role: 'assistant',
+        role: 'user',
         content: 'Maaf, terjadi kesalahan saat memproses permintaan Anda.',
       };
       setMessageOllama((prevMessages) => [...prevMessages, errorMessage]);
