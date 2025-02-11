@@ -1,4 +1,5 @@
 import axios from "axios";
+import { NextApiRequest, NextApiResponse } from 'next';
 
 // Environment variables from .env
 const SPOTIFY_CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_API_CLIENT_ID;
@@ -28,8 +29,9 @@ const getSpotifyAccessToken = async () => {
   }
 };
 
-// API handler untuk mendapatkan playlist pengguna
-export default async function handler(req: any, res: any) {
+// API handler untuk mendapatkan playlist penggun
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { userId } = req.query;
 
   if (!userId) {

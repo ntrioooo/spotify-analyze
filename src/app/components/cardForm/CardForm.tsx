@@ -26,7 +26,12 @@ const CardForm = () => {
 
   const [mounted, setMounted] = useState(false);
   const [username, setUsername] = useState<string>("");
-  const [playlists, setPlaylists] = useState<any[]>([]);
+  interface Playlist {
+    id: string;
+    name: string;
+  }
+
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
 
   const fetchPlaylists = async (userId: string) => {
@@ -130,7 +135,7 @@ const CardForm = () => {
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
-                {playlists.map((playlist: any) => (
+                {playlists.map((playlist) => (
                   <SelectItem key={playlist.id} value={playlist.id}>
                     {playlist.name}
                   </SelectItem>
